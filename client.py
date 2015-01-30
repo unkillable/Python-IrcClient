@@ -25,7 +25,7 @@ class IrcClient():
 				channel = channel[1].split(" :")
 				channel = channel[0].strip()
 				name = data.split("!", 1)[0]
-				message = "[%s]%s - %s" % (channel, name[1:], data.split(":", 2)[2].strip())
+				message = "[%s][%s]:%s" % (channel, name[1:], data.split(":", 2)[2].strip())
 				print message
 				if len(messages) <= terminal_size:
 					messages.append(message)
@@ -51,7 +51,9 @@ class IrcClient():
 					ready = True
 					#Thread(target=self.readInput, args = (s,)).start()
 					clear = True
-	
+			if " 353 "+ nick + " = " + channel + " :" in data:
+				users = data.split(" 353 "+ nick + " = " + channel + " :")[1].split("\n")[0].strip()
+				print "[Current users on %s]: %s" % (channel, users)
 	def readInput(self, s):
 		global channel
 		while True:
@@ -110,10 +112,13 @@ def inputLine():
 global channel 
 channel = "#k"
 client = IrcClient()
-name = raw_input("[Choose a nick]>")
-host = raw_input("[Host to connect to]>")
-port = raw_input("[Port to connect to]>")
-channel = raw_input("[Channel to join]>")
+if os.path.isfile("config.py"):
+	from config import host, name, port, channel
+else:
+	name = raw_input("[Choose a nick]>")
+	host = raw_input("[Host to connect to]>")
+	port = raw_input("[Port to connect to]>")
+	channel = raw_input("[Channel to join]>")
 s = socket.socket()
 s.connect((host, int(port)))
 Thread(target=client.connect, args = (s, name, channel,)).start()
