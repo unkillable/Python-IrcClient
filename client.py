@@ -8,16 +8,16 @@ import time
 class IrcClient():
 	def connect(self, s, nick, channel):
 		global messages
+		global current_channel
 		packets = ["NICK %s\r\n" % (nick), "USER %s %s %s: %s\r\n" % (nick, nick, nick, nick)]
 		for packet in packets:
 			s.send(packet)
 		connected = True
 		clear = False
-		messages = []
+		messages = {}
+		current_channel = channel
 		terminal_size = os.popen("stty size").read()
 		terminal_size = int(terminal_size.split(" ")[0].strip())
-		for n in range(terminal_size):
-			messages.append("")
 		while connected:
 			data = s.recv(1024).strip()
 			if "PRIVMSG " in data:
@@ -27,17 +27,28 @@ class IrcClient():
 				name = data.split("!", 1)[0]
 				message = "[%s][%s]:%s" % (channel, name[1:], data.split(":", 2)[2].strip())
 				print message
-				if len(messages) <= terminal_size:
-					messages.append(message)
+				if messages.has_key(channel):
+					if len(messages[channel]) <= terminal_size:
+						messages[channel].append(message)
+					else:
+						messages[channel].pop(0)
+						messages[channel].append(message)			
 				else:
-					messages.pop(0)
-					messages.append(message)			
+					messages[channel] = []
+					for n in range(terminal_size):
+						messages[channel].append("")
+					if len(messages[channel]) <= terminal_size:
+						messages[channel].append(message)
+					else:
+						messages[channel].pop(0)
+						messages[channel].append(message)	
 			else:
 				print data.partition(":")[2]
 			if clear == True:
 				os.system("clear")
-				for message in messages:
-					print message
+				if messages.has_key(current_channel):
+					for message in messages[current_channel]:
+						print message
 				
 			if "PING " in data:
 				hashbit = data.split("PING ")[1]
@@ -71,6 +82,8 @@ class IrcClient():
 				chan = message.split(" ")[1].strip()
 				channel = chan
 				send(s, "JOIN %s\r\n" % (channel))
+				global current_channel
+				current_channel = channel
 			if command == "part":
 				chan = message.split(" ")[1].strip()
 				channel = chan
@@ -80,7 +93,12 @@ class IrcClient():
 				s.close()
 				os._exit(1)
 			if command == "chan":
+				global current_channel
 				channel = message.split(" ")[1].strip()
+				current_channel = channel
+				os.system("clear")
+				for message in messages[current_channel]:
+					print message
 				print "Current channel is " + channel
 			if command == "nick":
 				nick = message.split(" ")[1].strip()
@@ -98,9 +116,22 @@ def send(s, message):
 def sendmsg(s, channel, message):
 	s.send("PRIVMSG %s :%s\r\n" % (channel, message))
 	global messages
-	messages.append("["+channel+"][You]:" + message)
+	if messages.has_key(channel):
+		pass
+	else:
+		messages[channel] = []
+		terminal_size = os.popen("stty size").read()
+		terminal_size = int(terminal_size.split(" ")[0].strip())
+		for n in range(terminal_size):
+			messages[channel].append("")
+		if len(messages[channel]) <= terminal_size:
+			messages[channel].append(message)
+		else:
+			messages[channel].pop(0)
+			messages[channel].append(message)	
+	messages[current_channel].append("["+channel+"][You]:" + message)
 	os.system("clear")
-	for message in messages:
+	for message in messages[current_channel]:
 		print message	
 def inputLine():
 	while True:
